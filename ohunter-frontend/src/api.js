@@ -1,152 +1,98 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+const API_BASE = "";
 
-function buildUrl(path, query = {}) {
-  const url = new URL(`${API_BASE}${path}`, window.location.origin);
-
+function buildQuery(query = {}) {
+  const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, value);
+      params.set(key, value);
     }
   });
-
-  return `${url.pathname}${url.search}`;
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : "";
 }
 
-function getErrorMessage(payload, fallback) {
-  if (typeof payload === "string" && payload.trim()) {
-    return payload;
+async function parseResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
   }
 
-  if (payload && typeof payload === "object") {
-    return payload.error || payload.message || fallback;
-  }
-
-  return fallback;
+  const text = await response.text();
+  return text ? { message: text } : {};
 }
 
 async function request(path, options = {}) {
-  const { body, token, query, headers, ...rest } = options;
-  const requestHeaders = new Headers(headers || {});
-
-  if (body !== undefined && !requestHeaders.has("Content-Type")) {
-    requestHeaders.set("Content-Type", "application/json");
+  const storedAuth = JSON.parse(localStorage.getItem("ohunter.auth") || "{}");
+  const token = options.token || storedAuth.token || "";
+  const headers = new Headers(options.headers || {});
+  if (!headers.has("Content-Type") && options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
   }
-
   if (token) {
-    requestHeaders.set("Authorization", `Bearer ${token}`);
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(buildUrl(path, query), {
-    ...rest,
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+  const response = await fetch(`${API_BASE}/api${path}${buildQuery(options.query)}`, {
+    method: options.method || "GET",
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json")
-    ? await response.json()
-    : await response.text();
-
+  const payload = await parseResponse(response);
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload, `Request failed with status ${response.status}`));
+    throw payload;
   }
 
   return payload;
 }
 
-export const api = {
-  login(credentials) {
-    return request("/auth/login", {
-      method: "POST",
-      body: credentials,
-    });
-  },
-  register(payload) {
-    return request("/auth/register", {
-      method: "POST",
-      body: payload,
-    });
-  },
-  getJobs() {
-    return request("/jobs");
-  },
-  searchJobs(keyword) {
-    return request("/jobs/search", {
-      query: { keyword },
-    });
-  },
-  getJobsByLocation(city) {
-    return request("/jobs/location", {
-      query: { city },
-    });
-  },
-  getFresherJobs() {
-    return request("/jobs/fresher");
-  },
-  createJob(job, employerId, token) {
-    return request("/jobs", {
-      method: "POST",
-      token,
-      query: { employerId },
-      body: job,
-    });
-  },
-  getEmployerJobs(employerId, token) {
-    return request(`/jobs/employer/${employerId}`, {
-      token,
-    });
-  },
-  deleteJob(jobId, token) {
-    return request(`/jobs/${jobId}`, {
-      method: "DELETE",
-      token,
-    });
-  },
-  applyForJob(jobId, userId, coverLetter, token) {
-    return request(`/applications/apply/${jobId}`, {
-      method: "POST",
-      token,
-      query: {
-        userId,
-        coverLetter,
-      },
-    });
-  },
-  getMyApplications(userId, token) {
-    return request(`/applications/my/${userId}`, {
-      token,
-    });
-  },
-  withdrawApplication(userId, jobId, token) {
-    return request("/applications/withdraw", {
-      method: "DELETE",
-      token,
-      query: { userId, jobId },
-    });
-  },
-  getApplicants(jobId, token) {
-    return request(`/applications/job/${jobId}`, {
-      token,
-    });
-  },
-  updateApplicationStatus(applicationId, status, token) {
-    return request(`/applications/${applicationId}/status`, {
-      method: "PUT",
-      token,
-      query: { status },
-    });
-  },
-  // Admin endpoints
-  getAdminUsers(token) {
-    return request(`/admin/users`, { token });
-  },
-  getAdminJobs(token) {
-    return request(`/admin/jobs`, { token });
-  },
-  getAdminApplications(token) {
-    return request(`/admin/applications`, { token });
-  },
-  getAdminStats(token) {
-    return request(`/admin/stats`, { token });
-  },
-};
+// Auth
+export function registerUser(data) {
+  return request("/auth/register", { method: "POST", body: data });
+}
+
+export function loginUser(data) {
+  return request("/auth/login", { method: "POST", body: data });
+}
+
+// Jobs
+export function getAllJobs() {
+  return request("/jobs");
+}
+
+export function searchJobs(keyword) {
+  return request("/jobs/search", { query: { keyword } });
+}
+
+export function filterByLocation(loc) {
+  return request("/jobs/location", { query: { loc } });
+}
+
+export function getFresherJobs() {
+  return request("/jobs", { query: { fresher: true } });
+}
+
+export function createJob(data, token) {
+  return request("/jobs", { method: "POST", body: data, token });
+}
+
+export function updateJob(id, data, token) {
+  return request(`/jobs/${id}`, { method: "PUT", body: data, token });
+}
+
+export function deleteJob(id, token) {
+  return request(`/jobs/${id}`, { method: "DELETE", token });
+}
+
+// Applications
+export function applyToJob(jobId, userId, token) {
+  return request(`/applications/apply/${jobId}`, { method: "POST", query: { userId }, token });
+}
+
+export function getMyApplications(userId, token) {
+  return request(`/applications/my/${userId}`, { token });
+}
+
+export function updateApplicationStatus(id, status, token) {
+  return request(`/applications/${id}/status`, { method: "PUT", query: { status }, token });
+}
