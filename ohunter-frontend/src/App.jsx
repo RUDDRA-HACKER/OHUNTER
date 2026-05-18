@@ -100,9 +100,31 @@ function toNullableNumber(value) {
   return Number.isNaN(number) ? null : number;
 }
 
+function AccountStatus({ user }) {
+  if (!user) {
+    return null;
+  }
+
+  const isGuest = user.role === "GUEST";
+
+  return (
+    <div className="account-status" aria-label={isGuest ? "Guest mode" : "Logged in account"}>
+      <span className={`account-dot ${isGuest ? "account-dot-guest" : "account-dot-user"}`} />
+      <div>
+        <span>{isGuest ? "Guest mode" : "Logged in"}</span>
+        <strong>{isGuest ? "Guest" : user.fullName || user.email || labelize(user.role)}</strong>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(readSession);
-  const [activePanel, setActivePanel] = useState("jobs");
+  const [activePanel, setActivePanel] = useState(() => {
+    const sessionValue = readSession();
+    if (window.location.pathname === "/admin") return "admin";
+    return sessionValue && sessionValue.user ? "jobs" : "auth";
+  });
   const [authMode, setAuthMode] = useState("login");
   const [loginForm, setLoginForm] = useState(emptyLoginForm);
   const [registerForm, setRegisterForm] = useState(emptyRegisterForm);
@@ -125,11 +147,16 @@ export default function App() {
   const [jobForm, setJobForm] = useState(emptyJobForm);
   const [submittingAuth, setSubmittingAuth] = useState(false);
   const [postingJob, setPostingJob] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminJobs, setAdminJobs] = useState([]);
+  const [adminApplications, setAdminApplications] = useState([]);
 
   const currentUser = session.user;
   const effectiveUserId = currentUser?.id || toNullableNumber(manualUserId);
   const isStudent = currentUser?.role === "STUDENT_FRESHER" || currentUser?.role === "STUDENT_EXPERIENCED";
   const isEmployer = currentUser?.role === "EMPLOYER";
+  const showAuthPanel = !currentUser && activePanel === "auth";
   const applicationMap = useMemo(
     () => new Map(applications.map((application) => [application.job?.id, application])),
     [applications],
@@ -159,6 +186,13 @@ export default function App() {
     const timeoutId = window.setTimeout(() => setNotice(null), 4500);
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
+
+  useEffect(() => {
+    // If user navigates to /admin path directly, show the admin panel (will prompt auth if needed)
+    if (window.location.pathname === "/admin") {
+      setActivePanel("admin");
+    }
+  }, []);
 
   useEffect(() => {
     loadJobs("all");
@@ -284,7 +318,41 @@ export default function App() {
 
     setSession(nextSession);
     setManualUserId(authResponse.userId ? "" : manualUserId);
-    setActivePanel(nextSession.user.role === "EMPLOYER" ? "employer" : nextSession.user.role === "ADMIN" ? "jobs" : "student");
+    if (nextSession.user.role === "EMPLOYER") {
+      setActivePanel("employer");
+    } else if (nextSession.user.role === "ADMIN") {
+      setActivePanel("admin");
+      loadAdminData(authResponse.token);
+    } else {
+      setActivePanel("student");
+    }
+  }
+
+  function handleSkip() {
+    const guest = { token: "", user: { id: null, fullName: "Guest", email: "", role: "GUEST" } };
+    setSession(guest);
+    setActivePanel("jobs");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function loadAdminData() {
+    setAdminLoading(true);
+    try {
+      const token = arguments[0] || session.token;
+      const [users, jobsList, apps] = await Promise.all([
+        api.getAdminUsers(token),
+        api.getAdminJobs(token),
+        api.getAdminApplications(token),
+      ]);
+
+      setAdminUsers(users || []);
+      setAdminJobs(jobsList || []);
+      setAdminApplications(apps || []);
+    } catch (error) {
+      setNotice({ type: "error", text: error.message || "Unable to load admin data." });
+    } finally {
+      setAdminLoading(false);
+    }
   }
 
   async function handleLogin(event) {
@@ -449,6 +517,201 @@ export default function App() {
     }
   }
 
+  if (!currentUser && activePanel === "auth") {
+    return (
+      <div className="app-shell">
+        <header className="topbar">
+          <div>
+            <span className="eyebrow">OHunter hiring workspace</span>
+            <h1>OHunter</h1>
+          </div>
+        </header>
+
+        <main className="auth-only-main">
+          <section className="panel panel-focus auth-panel">
+            <div className="panel-header">
+              <div>
+                <span className="section-tag">Auth</span>
+                <h3>Join OHunter Today</h3>
+              </div>
+              <p>Access your personalized dashboard, applications, and career opportunities securely.</p>
+            </div>
+
+            <div className="toggle-row">
+              <button
+                className={authMode === "login" ? "button button-primary" : "button button-ghost"}
+                onClick={() => setAuthMode("login")}
+                type="button"
+              >
+                Login
+              </button>
+              <button
+                className={authMode === "register" ? "button button-primary" : "button button-ghost"}
+                onClick={() => setAuthMode("register")}
+                type="button"
+              >
+                Register
+              </button>
+            </div>
+
+            {authMode === "login" ? (
+              <form className="stack-form" onSubmit={handleLogin}>
+                <Field
+                  label="Email"
+                  input={
+                    <input
+                      type="email"
+                      value={loginForm.email}
+                      onChange={(event) =>
+                        setLoginForm((currentValue) => ({ ...currentValue, email: event.target.value }))
+                      }
+                      required
+                    />
+                  }
+                />
+                <Field
+                  label="Password"
+                  input={
+                    <input
+                      type="password"
+                      value={loginForm.password}
+                      onChange={(event) =>
+                        setLoginForm((currentValue) => ({ ...currentValue, password: event.target.value }))
+                      }
+                      required
+                    />
+                  }
+                />
+                <button className="button button-primary" disabled={submittingAuth} type="submit">
+                  {submittingAuth ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+            ) : (
+              <form className="stack-form" onSubmit={handleRegister}>
+                <div className="form-grid">
+                  <Field
+                    label="Full name"
+                    input={
+                      <input
+                        value={registerForm.fullName}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, fullName: event.target.value }))
+                        }
+                        required
+                      />
+                    }
+                  />
+                  <Field
+                    label="Email"
+                    input={
+                      <input
+                        type="email"
+                        value={registerForm.email}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, email: event.target.value }))
+                        }
+                        required
+                      />
+                    }
+                  />
+                  <Field
+                    label="Password"
+                    input={
+                      <input
+                        type="password"
+                        value={registerForm.password}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, password: event.target.value }))
+                        }
+                        minLength="6"
+                        required
+                      />
+                    }
+                  />
+                  <Field
+                    label="Phone"
+                    input={
+                      <input
+                        value={registerForm.phone}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, phone: event.target.value }))
+                        }
+                        placeholder="9876543210"
+                      />
+                    }
+                  />
+                  <Field
+                    label="City"
+                    input={
+                      <input
+                        value={registerForm.city}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, city: event.target.value }))
+                        }
+                      />
+                    }
+                  />
+                  <Field
+                    label="Role"
+                    input={
+                      <select
+                        value={registerForm.role}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, role: event.target.value }))
+                        }
+                        required
+                      >
+                        {ROLE_OPTIONS.map((role) => (
+                          <option key={role.value} value={role.value}>
+                            {role.label}
+                          </option>
+                        ))}
+                      </select>
+                    }
+                  />
+                  <Field
+                    label="Skills"
+                    input={
+                      <input
+                        value={registerForm.skills}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, skills: event.target.value }))
+                        }
+                        placeholder="Java, SQL, React"
+                      />
+                    }
+                  />
+                  <Field
+                    label="Experience years"
+                    input={
+                      <input
+                        type="number"
+                        min="0"
+                        value={registerForm.experienceYears}
+                        onChange={(event) =>
+                          setRegisterForm((currentValue) => ({ ...currentValue, experienceYears: event.target.value }))
+                        }
+                      />
+                    }
+                  />
+                </div>
+                <button className="button button-primary" disabled={submittingAuth} type="submit">
+                  {submittingAuth ? "Creating account..." : "Create account"}
+                </button>
+              </form>
+            )}
+
+            <div className="auth-actions">
+              <button className="button button-ghost" onClick={handleSkip} type="button">
+                Skip for now
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-left" aria-hidden="true" />
@@ -457,10 +720,11 @@ export default function App() {
       <header className="topbar">
         <div>
           <span className="eyebrow">OHunter hiring workspace</span>
-          <h1>Responsive job discovery built around your Spring backend.</h1>
+          <h1>OHunter</h1>
         </div>
 
         <nav className="nav-actions">
+          <AccountStatus user={currentUser} />
           <button
             className={activePanel === "jobs" ? "button button-primary" : "button button-ghost"}
             onClick={() => setActivePanel("jobs")}
@@ -468,6 +732,19 @@ export default function App() {
           >
             Explore jobs
           </button>
+          {currentUser?.role === "ADMIN" && (
+            <button
+              className={activePanel === "admin" ? "button button-primary" : "button button-ghost"}
+              onClick={() => {
+                window.history.pushState({}, "", "/admin");
+                setActivePanel("admin");
+                loadAdminData();
+              }}
+              type="button"
+            >
+              Admin panel
+            </button>
+          )}
           {isStudent && (
             <button
               className={activePanel === "student" ? "button button-primary" : "button button-ghost"}
@@ -493,7 +770,10 @@ export default function App() {
           ) : (
             <button
               className={activePanel === "auth" ? "button button-primary" : "button button-ghost"}
-              onClick={() => setActivePanel("auth")}
+              onClick={() => {
+                setAuthMode("login");
+                setActivePanel("auth");
+              }}
               type="button"
             >
               Sign in
@@ -502,13 +782,14 @@ export default function App() {
         </nav>
       </header>
 
+      {!(!currentUser && activePanel === "auth") && (
+        <>
       <section className="hero">
         <div className="hero-copy">
-          <span className="hero-tag">React frontend + Spring APIs</span>
-          <h2>One frontend for students, freshers, employers, and admins.</h2>
+          <span className="hero-tag">Explore thousands of opportunities from trusted companies and apply with ease.</span>
+          <h2>Find Your Dream Job</h2>
           <p>
-            Browse public jobs, authenticate with JWT, apply to roles, and move candidates through
-            the hiring pipeline from one responsive interface.
+           Discover opportunities, apply seamlessly, and manage hiring workflows from one modern platform.
           </p>
           <div className="hero-actions">
             <button className="button button-primary" onClick={() => setActivePanel("jobs")} type="button">
@@ -516,7 +797,10 @@ export default function App() {
             </button>
             <button
               className="button button-secondary"
-              onClick={() => setActivePanel(currentUser ? (isEmployer ? "employer" : "student") : "auth")}
+              onClick={() => {
+                setAuthMode("register");
+                setActivePanel("auth");
+              }}
               type="button"
             >
               {currentUser ? "Open workspace" : "Create account"}
@@ -546,9 +830,9 @@ export default function App() {
           <div className="panel-header">
             <div>
               <span className="section-tag">Job board</span>
-              <h3>Search roles exposed by `/api/jobs`.</h3>
+              <h3>Find exciting career opportunities from companies hiring right now.</h3>
             </div>
-            <p>Search uses `/search`, `/location`, and `/fresher` based on your filters.</p>
+            <p>Filter jobs by skills, location, and experience level to find the perfect match.</p>
           </div>
 
           <form
@@ -559,26 +843,26 @@ export default function App() {
             }}
           >
             <Field
-              label="Keyword"
+              label="Job title or skill"
               input={
                 <input
                   value={jobFilters.keyword}
                   onChange={(event) =>
                   setJobFilters((currentValue) => ({ ...currentValue, keyword: event.target.value }))
                   }
-                  placeholder="Java, Spring, React..."
+                  placeholder="Role, company, or skill (e.g. 'Java','python', 'Product manager', 'Google')"
                 />
               }
             />
             <Field
-              label="Location"
+              label="Preferred location"
               input={
                 <input
                   value={jobFilters.location}
                   onChange={(event) =>
                   setJobFilters((currentValue) => ({ ...currentValue, location: event.target.value }))
                   }
-                  placeholder="Bhubaneswar, Remote..."
+                  placeholder="City, state, or remote (e.g. 'Bangalore', 'Remote')"
                 />
               }
             />
@@ -726,15 +1010,36 @@ export default function App() {
           )}
         </section>
 
-        <aside className="sidebar">
-          {!currentUser && (
-            <section className={`panel ${activePanel === "auth" ? "panel-focus" : ""}`}>
+                <aside className="sidebar">
+          {!currentUser && !showAuthPanel && (
+            <section className="panel">
               <div className="panel-header">
                 <div>
                   <span className="section-tag">Auth</span>
-                  <h3>Connect to `/api/auth`.</h3>
+                  <h3>Sign in or create an account when you are ready.</h3>
                 </div>
-                <p>Login and registration keep JWT state locally for the rest of the app.</p>
+                <p>The full login form stays out of the way until you open it.</p>
+              </div>
+
+              <div className="toggle-row">
+                <button className="button button-primary" onClick={() => setActivePanel("auth")} type="button">
+                  Sign in
+                </button>
+                <button className="button button-ghost" onClick={() => setActivePanel("auth")} type="button">
+                  Register
+                </button>
+              </div>
+            </section>
+          )}
+
+          {showAuthPanel && (
+            <section className="panel panel-focus">
+              <div className="panel-header">
+                <div>
+                  <span className="section-tag">Auth</span>
+                  <h3>Join OHunter Today</h3>
+                </div>
+                <p>Access your personalized dashboard, applications, and career opportunities securely.</p>
               </div>
 
               <div className="toggle-row">
@@ -753,6 +1058,8 @@ export default function App() {
                   Register
                 </button>
               </div>
+
+              {/* Skip button moved below forms */}
 
               {authMode === "login" ? (
                 <form className="stack-form" onSubmit={handleLogin}>
@@ -924,46 +1231,12 @@ export default function App() {
                   </button>
                 </form>
               )}
-            </section>
-          )}
 
-          {currentUser && (
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <span className="section-tag">Session</span>
-                  <h3>{currentUser.fullName || "Current user"}</h3>
-                </div>
-                <p>{currentUser.email || "Email unavailable from backend response."}</p>
+              <div className="auth-actions">
+                <button className="button button-ghost" onClick={handleSkip} type="button">
+                  Skip for now
+                </button>
               </div>
-
-              <div className="session-card">
-                <StatusPill status={currentUser.role} />
-                <p>
-                  {isEmployer
-                    ? "You can post jobs, view applicants, and move candidates through the hiring pipeline."
-                    : isStudent
-                      ? "You can apply to roles, review your status, and withdraw applications."
-                      : "Admin accounts currently have read-first access because the backend exposes no admin endpoints yet."}
-                </p>
-              </div>
-
-              {!currentUser.id && (
-                <label className="helper-box">
-                  Backend user ID
-                  <input
-                    type="number"
-                    min="1"
-                    value={manualUserId}
-                    onChange={(event) => setManualUserId(event.target.value)}
-                    placeholder="Enter numeric user id"
-                  />
-                  <span>
-                    This frontend expects `userId` from auth responses. Use this fallback if you are
-                    still running an older backend build.
-                  </span>
-                </label>
-              )}
             </section>
           )}
 
@@ -1021,9 +1294,9 @@ export default function App() {
                 <div className="panel-header">
                   <div>
                     <span className="section-tag">Employer hub</span>
-                    <h3>Post a role to `/api/jobs`.</h3>
+                    <h3>Create a new job opening...</h3>
                   </div>
-                  <p>Create openings that match the backend `Job` model.</p>
+                  <p>Create job openings and attract qualified candidates</p>
                 </div>
 
                 <form className="stack-form" onSubmit={handlePostJob}>
@@ -1197,7 +1470,7 @@ export default function App() {
                     <span className="section-tag">Employer feed</span>
                     <h3>Your active jobs and applicants.</h3>
                   </div>
-                  <p>The jobs list is powered by `/api/jobs/employer/{'{id}'}`.</p>
+                  <p>Manage your posted jobs and track applicants in one place</p>
                 </div>
 
                 {employerJobsLoading ? (
@@ -1308,8 +1581,62 @@ export default function App() {
               </section>
             </>
           )}
+
+        {activePanel === "admin" && (
+          <section className="panel panel-focus">
+            <div className="panel-header">
+              <div>
+                <span className="section-tag">Admin</span>
+                <h3>Administration console</h3>
+              </div>
+              <p>Overview of users, jobs and applications (requires ADMIN token).</p>
+            </div>
+
+            {adminLoading ? (
+              <Loader label="Loading admin data..." />
+            ) : (
+              <div>
+                <div className="stack-list">
+                  <article className="info-card">
+                    <h4>Users ({adminUsers.length})</h4>
+                    <div className="muted">
+                      {adminUsers.slice(0, 10).map((u) => (
+                        <div key={u.id}>{u.fullName} — {u.email} — {u.role}</div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="info-card">
+                    <h4>Jobs ({adminJobs.length})</h4>
+                    <div className="muted">
+                      {adminJobs.slice(0, 10).map((j) => (
+                        <div key={j.id}>{j.title} — {j.location}</div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="info-card">
+                    <h4>Applications ({adminApplications.length})</h4>
+                    <div className="muted">
+                      {adminApplications.slice(0, 10).map((a) => (
+                        <div key={a.id}>{a.user?.fullName || a.user?.email} — {a.job?.title}</div>
+                      ))}
+                    </div>
+                  </article>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <button className="button button-ghost" onClick={loadAdminData} type="button">
+                    Refresh admin data
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
         </aside>
       </main>
+      </>
+      )}
     </div>
   );
 }

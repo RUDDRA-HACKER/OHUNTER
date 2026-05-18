@@ -136,4 +136,17 @@ export const api = {
       query: { status },
     });
   },
+  // Admin endpoints
+  getAdminUsers(token) {
+    return request(`/admin/users`, { token });
+  },
+  getAdminJobs(token) {
+    return request(`/admin/jobs`, { token });
+  },
+  getAdminApplications(token) {
+    return request(`/admin/applications`, { token });
+  },
+  getAdminStats(token) {
+    return request(`/admin/stats`, { token });
+  },
 };
