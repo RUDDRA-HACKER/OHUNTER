@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { registerUser } from "../api";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ username: "", email: "", password: "", role: "JOBSEEKER" });
+  const [form, setForm] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    role: "JOBSEEKER",
+  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("success");
@@ -38,9 +44,9 @@ export default function RegisterPage() {
           <input
             className="input-field"
             type="text"
-            placeholder="Username"
-            value={form.username}
-            onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+            placeholder="Full name"
+            value={form.fullName}
+            onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
             required
           />
           <input
@@ -64,13 +70,14 @@ export default function RegisterPage() {
             value={form.role}
             onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}
           >
-            <option value="JOBSEEKER">JOBSEEKER</option>
-            <option value="EMPLOYER">EMPLOYER</option>
+            <option value="JOBSEEKER">Jobseeker</option>
+            <option value="EMPLOYER">Employer</option>
           </select>
           <button className="btn-primary auth-button" disabled={loading} type="submit">
+            {loading ? <LoadingSpinner label="Creating account" /> : null}
             {loading ? "Creating..." : "Register"}
           </button>
-          {message && <p className={`form-message ${messageType}`}>{message}</p>}
+          {message ? <p className={`form-message ${messageType}`}>{message}</p> : null}
         </form>
 
         <p className="auth-footer">

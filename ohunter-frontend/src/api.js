@@ -7,12 +7,14 @@ function buildQuery(query = {}) {
       params.set(key, value);
     }
   });
+
   const queryString = params.toString();
   return queryString ? `?${queryString}` : "";
 }
 
 async function parseResponse(response) {
   const contentType = response.headers.get("content-type") || "";
+
   if (contentType.includes("application/json")) {
     return response.json();
   }
@@ -25,9 +27,11 @@ async function request(path, options = {}) {
   const storedAuth = JSON.parse(localStorage.getItem("ohunter.auth") || "{}");
   const token = options.token || storedAuth.token || "";
   const headers = new Headers(options.headers || {});
+
   if (!headers.has("Content-Type") && options.body !== undefined) {
     headers.set("Content-Type", "application/json");
   }
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -46,7 +50,6 @@ async function request(path, options = {}) {
   return payload;
 }
 
-// Auth
 export function registerUser(data) {
   return request("/auth/register", { method: "POST", body: data });
 }
@@ -55,25 +58,37 @@ export function loginUser(data) {
   return request("/auth/login", { method: "POST", body: data });
 }
 
-// Jobs
 export function getAllJobs() {
   return request("/jobs");
+}
+
+export function getJobById(id) {
+  return request(`/jobs/${id}`);
 }
 
 export function searchJobs(keyword) {
   return request("/jobs/search", { query: { keyword } });
 }
 
-export function filterByLocation(loc) {
-  return request("/jobs/location", { query: { loc } });
+export function filterByLocation(city) {
+  return request("/jobs/location", { query: { city } });
 }
 
 export function getFresherJobs() {
-  return request("/jobs", { query: { fresher: true } });
+  return request("/jobs/fresher");
 }
 
-export function createJob(data, token) {
-  return request("/jobs", { method: "POST", body: data, token });
+export function getEmployerJobs(employerId, token) {
+  return request(`/jobs/employer/${employerId}`, { token });
+}
+
+export function createJob(data, token, employerId) {
+  return request("/jobs", {
+    method: "POST",
+    body: data,
+    query: employerId ? { employerId } : undefined,
+    token,
+  });
 }
 
 export function updateJob(id, data, token) {
@@ -84,15 +99,34 @@ export function deleteJob(id, token) {
   return request(`/jobs/${id}`, { method: "DELETE", token });
 }
 
-// Applications
 export function applyToJob(jobId, userId, token) {
-  return request(`/applications/apply/${jobId}`, { method: "POST", query: { userId }, token });
+  return request(`/applications/apply/${jobId}`, {
+    method: "POST",
+    query: { userId },
+    token,
+  });
 }
 
 export function getMyApplications(userId, token) {
   return request(`/applications/my/${userId}`, { token });
 }
 
+export function getApplicantsForJob(jobId, token) {
+  return request(`/applications/job/${jobId}`, { token });
+}
+
 export function updateApplicationStatus(id, status, token) {
-  return request(`/applications/${id}/status`, { method: "PUT", query: { status }, token });
+  return request(`/applications/${id}/status`, {
+    method: "PUT",
+    query: { status },
+    token,
+  });
+}
+
+export function withdrawApplication(jobId, userId, token) {
+  return request("/applications/withdraw", {
+    method: "DELETE",
+    query: { jobId, userId },
+    token,
+  });
 }

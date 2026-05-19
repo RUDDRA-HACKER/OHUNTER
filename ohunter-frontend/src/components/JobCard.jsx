@@ -1,27 +1,59 @@
-import { Link } from "react-router-dom";
+import {
+  formatJobType,
+  formatPostedDays,
+  formatSalaryRange,
+  getCompanyName,
+  isFresherFriendly,
+} from "../utils/jobUtils";
 
-export default function JobCard({ job }) {
+export default function JobCard({ job, onClick }) {
+  const fresherFriendly = isFresherFriendly(job);
+  const clickable = typeof onClick === "function";
+
+  function handleKeyDown(event) {
+    if (!clickable) return;
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick();
+    }
+  }
+
   return (
-    <article className="job-card card">
-      <div className="card-head">
-        <div>
-          <span className="badge">{job.location || "Remote"}</span>
-          {job.fresher && <span className="tag-fresher" style={{ marginLeft: 8 }}>Fresher</span>}
-          <h3 style={{ marginTop: 12 }}>{job.title}</h3>
-          <p>{job.company || job.companyName || "OHunter listing"}</p>
+    <article
+      className={`job-card card${clickable ? " job-card-clickable" : ""}`}
+      onClick={clickable ? onClick : undefined}
+      onKeyDown={handleKeyDown}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+    >
+      <div className="job-card-header">
+        <div className="job-card-title-group">
+          <h3>{job.title || "Untitled role"}</h3>
+          <p>{getCompanyName(job)}</p>
         </div>
-        <span className="badge">{job.jobType || "Full Time"}</span>
       </div>
 
-      <p style={{ marginTop: 12 }}>{job.description || "No description provided yet."}</p>
+      <div className="job-card-meta">
+        <span className="badge chip">
+          <span aria-hidden="true">📍</span>
+          {job.location || "Remote"}
+        </span>
+        <span className="badge chip">
+          <span aria-hidden="true">💼</span>
+          {formatJobType(job.jobType)}
+        </span>
+        <span className="badge chip">
+          <span aria-hidden="true">💰</span>
+          {formatSalaryRange(job)}
+        </span>
+      </div>
 
-      <div className="card-foot" style={{ marginTop: 16 }}>
-        <div className="stack" style={{ gap: 8 }}>
-          {job.requiredSkills?.split(",")?.slice(0, 3)?.map((skill) => (
-            <span className="badge" key={skill.trim()}>{skill.trim()}</span>
-          ))}
-        </div>
-        <Link className="btn-outline" to={`/jobs/${job.id}`}>View</Link>
+      {job.description ? <p className="job-card-description">{job.description}</p> : null}
+
+      <div className="job-card-footer">
+        {fresherFriendly ? <span className="tag-fresher">Fresher OK</span> : <span />}
+        <span className="job-card-posted">{formatPostedDays(job.createdAt)}</span>
       </div>
     </article>
   );

@@ -37,7 +37,7 @@ export default function LandingPage() {
             <Link className="btn-primary" to="/jobs">
               Browse Jobs
             </Link>
-            <Link className="btn-outline" to="/register">
+            <Link className="btn-outline" to="/employer/post-job">
               Post a Job
             </Link>
           </div>

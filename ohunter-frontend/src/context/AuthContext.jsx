@@ -1,20 +1,28 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "ohunter.auth";
-const emptyAuth = { token: "", userId: null, role: "", username: "" };
+const emptyAuth = {
+  token: "",
+  userId: null,
+  role: "",
+  fullName: "",
+  email: "",
+};
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 function readStoredAuth() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyAuth;
+
     const parsed = JSON.parse(raw);
     return {
       token: parsed.token || "",
       userId: parsed.userId ?? null,
       role: parsed.role || "",
-      username: parsed.username || "",
+      fullName: parsed.fullName || parsed.username || "",
+      email: parsed.email || "",
     };
   } catch {
     return emptyAuth;
@@ -41,7 +49,14 @@ export function AuthProvider({ children }) {
       token: auth.token,
       userId: auth.userId,
       role: auth.role,
-      username: auth.username,
+      fullName: auth.fullName,
+      email: auth.email,
+      user: {
+        id: auth.userId,
+        role: auth.role,
+        fullName: auth.fullName,
+        email: auth.email,
+      },
       isAuthenticated,
       isEmployer,
       isJobseeker,
@@ -50,7 +65,8 @@ export function AuthProvider({ children }) {
           token: data.token || "",
           userId: data.userId ?? null,
           role: data.role || "",
-          username: data.username || "",
+          fullName: data.fullName || data.username || "",
+          email: data.email || "",
         };
         setAuth(nextAuth);
         saveAuth(nextAuth);

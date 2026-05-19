@@ -1,55 +1,89 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import EmptyState from "../components/EmptyState";
+import JobCard from "../components/JobCard";
+import LoadingSpinner from "../components/LoadingSpinner";
+import Toast from "../components/Toast";
 import { filterByLocation, getAllJobs, getFresherJobs, searchJobs } from "../api";
+import { useToast } from "../hooks/useToast";
+import { getCompanyName, isFresherFriendly } from "../utils/jobUtils";
 
-function formatSalary(job) {
-  const min = job.minSalary ?? job.salaryMin ?? job.minSalaryRange;
-  const max = job.maxSalary ?? job.salaryMax ?? job.maxSalaryRange;
-  if (min == null && max == null) return "Salary undisclosed";
-  return `${min ? `₹${Number(min).toLocaleString("en-IN")}` : "—"} - ${max ? `₹${Number(max).toLocaleString("en-IN")}` : "—"}`;
-}
-
-function JobSkeleton() {
+function JobCardSkeleton() {
   return (
-    <article className="job-card card skeleton-card">
-      <div className="skeleton skeleton-badge" />
+    <article className="job-card card skeleton-card" aria-hidden="true">
       <div className="skeleton skeleton-line large" />
-      <div className="skeleton skeleton-line" />
-      <div className="skeleton skeleton-line" />
-      <div className="skeleton-grid">
+      <div className="skeleton skeleton-line medium" />
+      <div className="job-card-meta">
         <div className="skeleton skeleton-chip" />
         <div className="skeleton skeleton-chip" />
+        <div className="skeleton skeleton-chip wide" />
       </div>
+      <div className="skeleton skeleton-line" />
+      <div className="skeleton skeleton-line short" />
     </article>
   );
 }
 
+function matchesKeyword(job, keyword) {
+  const haystack = [
+    job?.title,
+    getCompanyName(job),
+    job?.requiredSkills,
+    job?.description,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(keyword.toLowerCase());
+}
+
 export default function JobListPage() {
+  const navigate = useNavigate();
+  const { toast, showToast } = useToast();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [location, setLocation] = useState("");
   const [fresherOnly, setFresherOnly] = useState(false);
-  const [sticky, setSticky] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const isEmpty = useMemo(() => !loading && jobs.length === 0, [jobs.length, loading]);
 
-  async function loadJobs({ nextKeyword = keyword, nextLocation = location, nextFresher = fresherOnly } = {}) {
+  async function loadJobs(overrides = {}) {
+    const nextKeyword = overrides.keyword ?? keyword;
+    const nextLocation = overrides.location ?? location;
+    const nextFresher = overrides.fresherOnly ?? fresherOnly;
+
     setLoading(true);
+
     try {
-      let data = [];
-      if (nextFresher) {
+      let data;
+      const hasKeyword = nextKeyword.trim().length > 0;
+      const hasLocation = nextLocation.trim().length > 0;
+
+      if (nextFresher && !hasKeyword && !hasLocation) {
         data = await getFresherJobs();
-      } else if (nextKeyword.trim()) {
+      } else if (hasKeyword && !hasLocation && !nextFresher) {
         data = await searchJobs(nextKeyword.trim());
-      } else if (nextLocation.trim()) {
+      } else if (hasLocation && !hasKeyword && !nextFresher) {
         data = await filterByLocation(nextLocation.trim());
       } else {
         data = await getAllJobs();
+        data = (Array.isArray(data) ? data : []).filter((job) => {
+          const keywordMatch = hasKeyword ? matchesKeyword(job, nextKeyword.trim()) : true;
+          const locationMatch = hasLocation
+            ? (job.location || "").toLowerCase().includes(nextLocation.trim().toLowerCase())
+            : true;
+          const fresherMatch = nextFresher ? isFresherFriendly(job) : true;
+          return keywordMatch && locationMatch && fresherMatch;
+        });
       }
+
       setJobs(Array.isArray(data) ? data : []);
     } catch (error) {
       setJobs([]);
+      showToast(error?.message || error?.error || "Unable to load jobs right now.", "error");
     } finally {
       setLoading(false);
     }
@@ -61,106 +95,107 @@ export default function JobListPage() {
   }, []);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      if (!fresherOnly) {
-        loadJobs({ nextKeyword: keyword, nextLocation: location, nextFresher: false });
-      }
-    }, 400);
+    function handleScroll() {
+      setShowBackToTop(window.scrollY > 300);
+    }
 
-    return () => window.clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, location]);
-
-  useEffect(() => {
-    const onScroll = () => setSticky(window.scrollY > 90);
-    onScroll();
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  function handleClearFilters() {
+    setKeyword("");
+    setLocation("");
+    setFresherOnly(false);
+    loadJobs({ keyword: "", location: "", fresherOnly: false });
+  }
 
   return (
     <main className="page-container jobs-page">
-      <section className={`jobs-search card ${sticky ? "sticky-search" : ""}`}>
-        <div className="search-grid">
+      <Toast {...toast} />
+
+      <section className="jobs-search card">
+        <form
+          className="search-grid"
+          onSubmit={(event) => {
+            event.preventDefault();
+            loadJobs();
+          }}
+        >
           <label className="search-field">
             <span>Keyword</span>
-            <input className="input-field" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="Search by role or skill" />
+            <input
+              className="input-field"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="Search by role, skills, or company"
+            />
           </label>
+
           <label className="search-field">
             <span>Location</span>
-            <input className="input-field" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="City, area, remote" />
+            <input
+              className="input-field"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              placeholder="City, region, or remote"
+            />
           </label>
-          <label className="toggle-field">
-            <input type="checkbox" checked={fresherOnly} onChange={(event) => {
-              const checked = event.target.checked;
-              setFresherOnly(checked);
-              if (checked) {
-                loadJobs({ nextKeyword: "", nextLocation: "", nextFresher: true });
-              } else {
-                loadJobs({ nextKeyword: keyword, nextLocation: location, nextFresher: false });
-              }
-            }} />
+
+          <label className="toggle-switch toggle-inline">
+            <input
+              type="checkbox"
+              checked={fresherOnly}
+              onChange={(event) => setFresherOnly(event.target.checked)}
+            />
+            <span className="toggle-slider" aria-hidden="true" />
             <span>Fresher Only</span>
           </label>
+
           <div className="toolbar job-search-actions">
-            <button className="btn-primary" type="button" onClick={() => loadJobs({ nextKeyword: keyword, nextLocation: location, nextFresher: fresherOnly })}>
-              Search
+            <button className="btn-primary" type="submit" disabled={loading}>
+              {loading ? <LoadingSpinner label="Searching jobs" /> : null}
+              {loading ? "Searching..." : "Search"}
             </button>
-            <button
-              className="btn-outline"
-              type="button"
-              onClick={() => {
-                setKeyword("");
-                setLocation("");
-                setFresherOnly(false);
-                loadJobs({ nextKeyword: "", nextLocation: "", nextFresher: false });
-              }}
-            >
+            <button className="btn-outline" type="button" disabled={loading} onClick={handleClearFilters}>
               Clear
             </button>
           </div>
-        </div>
+        </form>
       </section>
 
       <section className="jobs-grid-wrap">
         {loading ? (
-          Array.from({ length: 3 }).map((_, index) => <JobSkeleton key={index} />)
+          Array.from({ length: 4 }).map((_, index) => <JobCardSkeleton key={index} />)
         ) : isEmpty ? (
-          <div className="empty-state card">
-            <div className="empty-illustration" aria-hidden="true">🔎</div>
-            <h2>No jobs found</h2>
-            <p>Try adjusting your filters or clear the search to see all opportunities.</p>
-          </div>
+          <EmptyState
+            icon="🔎"
+            title="No jobs found"
+            message="Try adjusting your filters to uncover more opportunities."
+            actionLabel="Clear Filters"
+            onAction={handleClearFilters}
+          />
         ) : (
-          jobs.map((job) => {
-            const fresherFriendly = Boolean(job.fresher || job.isFresher || job.minExperience === 0);
-            return (
-              <Link key={job.id} to={`/jobs/${job.id}`} className="job-card card job-link">
-                <div className="card-head job-card-header">
-                  <div>
-                    <h3>{job.title}</h3>
-                    <p>{job.company?.name || job.companyName || "OHunter hiring partner"}</p>
-                  </div>
-                  <span className="badge">{job.jobType || "Full Time"}</span>
-                </div>
-
-                <div className="job-meta-grid">
-                  <span className="badge">{job.location || "Remote"}</span>
-                  <span className="badge">{formatSalary(job)}</span>
-                  <span className="badge">Posted {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "recently"}</span>
-                </div>
-
-                <p className="job-summary">{job.description || "Discover the latest job opportunity."}</p>
-
-                <div className="card-foot">
-                  {fresherFriendly ? <span className="tag-fresher">Fresher Friendly</span> : <span />}
-                  <span className="view-link">View details →</span>
-                </div>
-              </Link>
-            );
-          })
+          jobs.map((job) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              onClick={() => navigate(`/jobs/${job.id}`)}
+            />
+          ))
         )}
       </section>
+
+      {showBackToTop ? (
+        <button
+          className="back-to-top"
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          ↑ Top
+        </button>
+      ) : null}
     </main>
   );
 }

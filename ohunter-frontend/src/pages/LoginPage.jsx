@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { loginUser } from "../api";
 import { useAuth } from "../context/AuthContext";
 
@@ -51,9 +52,10 @@ export default function LoginPage() {
             required
           />
           <button className="btn-primary auth-button" disabled={loading} type="submit">
+            {loading ? <LoadingSpinner label="Signing in" /> : null}
             {loading ? "Signing in..." : "Login"}
           </button>
-          {error && <p className="form-message error">{error}</p>}
+          {error ? <p className="form-message error">{error}</p> : null}
         </form>
 
         <p className="auth-footer">

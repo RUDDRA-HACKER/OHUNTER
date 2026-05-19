@@ -1,5 +1,8 @@
 package com.vanguard.ohunter_backend.service;
 import com.vanguard.ohunter_backend.model.Job;
+import com.vanguard.ohunter_backend.model.Company;
+import com.vanguard.ohunter_backend.model.User;
+import com.vanguard.ohunter_backend.repository.CompanyRepository;
 import com.vanguard.ohunter_backend.repository.JobRepository;
 import com.vanguard.ohunter_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +13,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JobService {
 
+    private final CompanyRepository companyRepository;
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
 
@@ -43,10 +47,13 @@ public class JobService {
 
     // Post a new job
     public Job createJob(Job job, Long employerId) {
+        User employer = null;
         if (employerId != null) {
-            job.setEmployer(userRepository.findById(employerId)
-                    .orElseThrow(() -> new RuntimeException("Employer not found!")));
+            employer = userRepository.findById(employerId)
+                    .orElseThrow(() -> new RuntimeException("Employer not found!"));
+            job.setEmployer(employer);
         }
+        job.setCompany(resolveCompany(job.getCompany(), employer, null));
         return jobRepository.save(job);
     }
 
@@ -66,6 +73,7 @@ public class JobService {
         job.setOpenings(updatedJob.getOpenings());
         job.setDeadline(updatedJob.getDeadline());
         job.setActive(updatedJob.isActive());
+        job.setCompany(resolveCompany(updatedJob.getCompany(), job.getEmployer(), job.getCompany()));
         return jobRepository.save(job);
     }
 
@@ -79,5 +87,27 @@ public class JobService {
     // Get jobs for freshers
     public List<Job> getFresherJobs() {
         return jobRepository.findByMinExperienceAndIsActiveTrue(0);
+    }
+
+    private Company resolveCompany(Company requestedCompany, User employer, Company existingCompany) {
+        if (requestedCompany == null || requestedCompany.getName() == null || requestedCompany.getName().isBlank()) {
+            return existingCompany;
+        }
+
+        Company company = requestedCompany.getId() != null
+                ? companyRepository.findById(requestedCompany.getId()).orElse(existingCompany)
+                : companyRepository.findFirstByNameIgnoreCase(requestedCompany.getName().trim()).orElse(existingCompany);
+
+        if (company == null) {
+            company = new Company();
+        }
+
+        company.setName(requestedCompany.getName().trim());
+
+        if (company.getEmployer() == null) {
+            company.setEmployer(employer);
+        }
+
+        return companyRepository.save(company);
     }
 }

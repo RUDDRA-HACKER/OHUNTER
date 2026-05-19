@@ -1,30 +1,142 @@
-import { Link, NavLink } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useContext, useEffect, useState } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+
+function navLinkClass({ isActive }) {
+  return `nav-link${isActive ? " active" : ""}`;
+}
 
 export default function Navbar() {
-  const { isAuthenticated, isGuest, user, logout } = useAuth();
+  const location = useLocation();
+  const { isAuthenticated, isEmployer, isJobseeker, logout } = useContext(AuthContext);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    function handleScroll() {
+      setScrolled(window.scrollY > 16);
+    }
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const centerLinks = [{ label: "Browse Jobs", to: "/jobs" }];
+  if (isEmployer) {
+    centerLinks.push({ label: "Post a Job", to: "/employer/post-job" });
+  }
 
   return (
-    <header className="topbar page-container" style={{ paddingTop: 24, paddingBottom: 24 }}>
-      <Link to="/" className="brand">
-        <span className="badge">OH</span>
-        <div>
-          <h2>OHunter</h2>
-          <p>Premium job portal</p>
-        </div>
-      </Link>
+    <header className={`navbar${scrolled ? " navbar-scrolled" : ""}`}>
+      <div className="page-container navbar-shell">
+        <Link to="/" className="navbar-logo" aria-label="OHunter home">
+          <span className="navbar-logo-accent">O</span>
+          <span className="navbar-logo-rest"> H U N T E R</span>
+        </Link>
 
-      <nav className="toolbar">
-        <NavLink to="/jobs" className="btn-outline">Jobs</NavLink>
-        {isAuthenticated && <NavLink to="/applications" className="btn-outline">My Applications</NavLink>}
-        {user?.role === "EMPLOYER" && <NavLink to="/employer" className="btn-outline">Employer Dashboard</NavLink>}
-        {isGuest && <span className="badge">Guest mode</span>}
-        {isAuthenticated ? (
-          <button className="btn-danger" onClick={logout} type="button">Log out</button>
-        ) : (
-          <Link className="btn-primary" to="/login">Sign in</Link>
-        )}
-      </nav>
+        <nav className="navbar-center" aria-label="Primary navigation">
+          {centerLinks.map((link) => (
+            <NavLink key={link.to} to={link.to} className={navLinkClass}>
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="navbar-right">
+          {!isAuthenticated ? (
+            <>
+              <NavLink to="/login" className={navLinkClass}>
+                Login
+              </NavLink>
+              <Link to="/register" className="btn-outline navbar-action">
+                Register
+              </Link>
+            </>
+          ) : null}
+
+          {isJobseeker ? (
+            <>
+              <NavLink to="/my-applications" className={navLinkClass}>
+                My Applications
+              </NavLink>
+              <button className="btn-outline navbar-action" type="button" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : null}
+
+          {isEmployer ? (
+            <>
+              <NavLink to="/employer/dashboard" className={navLinkClass}>
+                Dashboard
+              </NavLink>
+              <button className="btn-outline navbar-action" type="button" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        <button
+          className={`navbar-menu-button${menuOpen ? " is-open" : ""}`}
+          type="button"
+          aria-label="Toggle navigation menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((current) => !current)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </div>
+
+      <div className={`mobile-menu${menuOpen ? " open" : ""}`}>
+        <div className="page-container mobile-menu-inner">
+          {centerLinks.map((link) => (
+            <NavLink key={link.to} to={link.to} className={navLinkClass}>
+              {link.label}
+            </NavLink>
+          ))}
+
+          {!isAuthenticated ? (
+            <>
+              <NavLink to="/login" className={navLinkClass}>
+                Login
+              </NavLink>
+              <NavLink to="/register" className={navLinkClass}>
+                Register
+              </NavLink>
+            </>
+          ) : null}
+
+          {isJobseeker ? (
+            <>
+              <NavLink to="/my-applications" className={navLinkClass}>
+                My Applications
+              </NavLink>
+              <button className="nav-link mobile-logout" type="button" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : null}
+
+          {isEmployer ? (
+            <>
+              <NavLink to="/employer/dashboard" className={navLinkClass}>
+                Dashboard
+              </NavLink>
+              <button className="nav-link mobile-logout" type="button" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
     </header>
   );
 }
