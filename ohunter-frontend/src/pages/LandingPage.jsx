@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const stats = [
   { icon: "💼", number: "10,000+", label: "Jobs" },
   { icon: "🏢", number: "5,000+", label: "Companies" },
   { icon: "👀", number: "50,000+", label: "Seekers" },
+  { icon: "📍", number: "2,000+", label: "Locations" },
+  { icon: "📨", number: "120,000+", label: "Applications" },
 ];
 
 const features = [
@@ -22,6 +25,12 @@ const features = [
 ];
 
 export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 16);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <main className="landing-page">
       <section className="page-container hero-section">
@@ -44,9 +53,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="page-container stats-bar">
-        {stats.map((stat) => (
-          <article className="stat-card card" key={stat.label}>
+      <section className={`page-container stats-bar ${mounted ? "is-animated" : ""}`}>
+        {stats.map((stat, i) => (
+          <article
+            className="stat-card card"
+            key={stat.label}
+            style={{ ["--enter-delay"]: `${i * 80}ms` }}
+          >
             <span className="stat-icon" aria-hidden="true">
               {stat.icon}
             </span>

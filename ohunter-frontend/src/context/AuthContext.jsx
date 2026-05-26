@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => {
     const isAuthenticated = Boolean(auth.token);
     const isEmployer = auth.role === "EMPLOYER";
-    const isJobseeker = auth.role === "JOBSEEKER";
+    const isJobseeker = auth.role === "STUDENT_FRESHER" || auth.role === "STUDENT_EXPERIENCED";
 
     return {
       token: auth.token,

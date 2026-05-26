@@ -1,0 +1,71 @@
+Attached Element Context from Integrated Browser
+
+Element: section.panel.panel-focus
+
+URL: http://localhost:5173/
+
+HTML Path: div#root > div.app-shell > main.workspace > section.panel.panel-focus
+
+Outer HTML:
+```html
+<section class="panel panel-focus"><div class="panel-header"><div><span class="section-tag">Job board</span><h3>Find exciting career opportunities from companies hiring right now.</h3></div><p>Filter jobs by skills, location, and experience level to find the perfect match.</p></div><form class="filters"><label class="field"><span>Job title or skill</span><input placeholder="Role, company, or skill (e.g. 'Java','python', 'Product manager', 'Google')" value=""></label><label class="field"><span>Preferred location</span><input placeholder="City, state, or remote (e.g. 'Bangalore', 'Remote')" value=""></label><div class="filter-actions"><button class="button button-primary" type="submit">Search</button><button class="button button-secondary" type="button">Fresher roles</button><button class="button button-ghost" type="button">Reset</button></div></form><div class="jobs-grid"><article class="job-card"><div class="job-card-top"><div><span class="job-badge">Full Time</span><h4>Test Job</h4><p class="job-company">Independent employer listing</p></div></div><p class="job-description">Test job description</p><div class="job-meta"><div class="meta-item"><span>Location</span><strong>Remote</strong></div><div class="meta-item"><span>Salary</span><strong>₹5,00,000 - ₹8,00,000</strong></div><div class="meta-item"><span>Experience</span><strong>2 - 5+ years</strong></div><div class="meta-item"><span>Deadline</span><strong>1 Jun 2026</strong></div></div><div class="skill-row"><span class="chip">Java</span><span class="chip">Spring</span></div></article><article class="job-card"><div class="job-card-top"><div><span class="job-badge">Full Time</span><h4>Senior Java Developer</h4><p class="job-company">Independent employer listing</p></div></div><p class="job-description">Looking for experienced Java developer with Spring Boot knowledge</p><div class="job-meta"><div class="meta-item"><span>Location</span><strong>Remote</strong></div><div class="meta-item"><span>Salary</span><strong>₹8,00,000 - ₹12,00,000</strong></div><div class="meta-item"><span>Experience</span><strong>3 - 8+ years</strong></div><div class="meta-item"><span>Deadline</span><strong>31 May 2026</strong></div></div><div class="skill-row"><span class="chip">Java</span><span class="chip">Spring Boot</span><span class="chip">MySQL</span></div></article></div></section>
+```
+
+Dimensions:
+- top: 169px
+- left: 57px
+- width: 690px
+- height: 996px
+
+CSS:
+```css
+* { box-sizing: border-box; }
+.topbar, .hero, .panel, .toast { position: relative;
+  z-index: 1; }
+.hero-copy, .hero-stats, .panel, .job-card, .info-card, .session-card, .helper-box, .empty-state, .metric-card, .toast, .account-status, .application-box { width: 100%;
+  min-width: 0;
+  animation: floatIn 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease; }
+.hero-copy, .hero-stats, .panel { background: var(--panel);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); }
+.panel { padding: 1.3rem; }
+.panel-focus { box-shadow:
+    0 24px 60px rgba(17, 94, 89, 0.12),
+    0 0 0 2px rgba(15, 118, 110, 0.1); }
+.hero-copy, .hero-stats > *:nth-child(1), .workspace > *:nth-child(1), .panel > *:nth-child(1), .stack-list > *:nth-child(1), .jobs-grid > *:nth-child(1) { animation-delay: 40ms; }
+
+/* Inherited */
+:root { font-family: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif; line-height: 1.5; color: var(--ink) }
+
+/* Resolved values */
+padding: 20.8px;
+border: 0.8px solid rgba(255, 255, 255, 0.6);
+transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s, background-color 0.22s;
+animation: floatIn 0.56s cubic-bezier(0.2, 0.8, 0.2, 1) 0.04s both;
+backdrop-filter: blur(18px);
+box-shadow: rgba(17, 94, 89, 0.12) 0px 24px 60px 0px, rgba(15, 118, 110, 0.1) 0px 0px 0px 2px;
+box-sizing: border-box;
+color: rgb(28, 43, 40);
+display: block;
+font-family: Aptos, "Trebuchet MS", "Segoe UI", sans-serif;
+height: 995.825px;
+line-height: 24px;
+min-width: 0px;
+position: relative;
+unicode-bidi: isolate /*UA*/;
+width: 690.4px;
+z-index: 1;
+
+/* CSS variables */
+--panel: rgba(255, 252, 246, 0.9);
+--radius-lg: 28px;
+--ink: #1c2b28;
+--shadow: 0 20px 60px rgba(29, 48, 44, 0.12);
+```

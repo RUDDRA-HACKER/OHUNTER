@@ -523,6 +523,7 @@ textarea.input-field {
   min-height: 560px;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 .hero-blob {
@@ -540,7 +541,12 @@ textarea.input-field {
 .hero-content {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex: 1 1 760px;
+  flex-direction: column;
+  width: min(100%, 760px);
   max-width: 760px;
+  box-shadow: 0 8px 32px rgba(10, 15, 30, 0.25);
   padding: 44px;
 }
 
@@ -572,20 +578,26 @@ textarea.input-field {
 .dashboard-stats {
   display: grid;
   gap: 18px;
+  justify-content: center;
 }
 
 .stats-bar,
 .dashboard-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  justify-content: center;
+  
 }
 
 .features-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  
 }
 
 .jobs-grid-wrap,
 .applications-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  
 }
 
 .stats-bar {
@@ -597,6 +609,29 @@ textarea.input-field {
   display: grid;
   gap: 0.8rem;
   min-height: 160px;
+  /* visible by default so UI remains usable if animation doesn't run */
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Trigger animations when parent adds the .is-animated class (mounted) */
+.is-animated .stat-card,
+.is-animated .feature-card {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: slideUp 420ms cubic-bezier(.2,.9,.2,1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .stat-icon {

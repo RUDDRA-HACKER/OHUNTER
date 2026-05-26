@@ -28,7 +28,7 @@ function AppLayout() {
           <Route
             path="/my-applications"
             element={
-              <ProtectedRoute requiredRole="JOBSEEKER">
+              <ProtectedRoute roles={["STUDENT_FRESHER", "STUDENT_EXPERIENCED"]}>
                 <MyApplicationsPage />
               </ProtectedRoute>
             }
